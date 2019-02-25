@@ -4,14 +4,12 @@ module Database.Google.BigQuery.Types where
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Time.Clock
+import Control.Monad.IO.Class
 import qualified Data.Map.Strict
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString as BS
 
-class Paginated a b | a -> b where
-  nextPageID :: a -> Maybe String
-  getPage :: a -> [b]
 
 data DatasetReference = DatasetReference
   { _dsrefDatasetID :: T.Text
@@ -39,29 +37,13 @@ instance FromJSON Dataset where
     <*> v .: "location"
   parseJSON invalid = typeMismatch "dataset" invalid
 
-data PaginatedResults a = PaginatedResults
-  { _paginatedKind :: T.Text
-  , _paginatedETag :: T.Text
-  , _paginatedNextPageToken :: Maybe String
-  , _paginatedValues :: [a]
-  } deriving (Eq, Show, Ord)
+
 
 class NamedKey a where
   keyName :: T.Text
 
 instance NamedKey Dataset where keyName = "datasets"
 
-instance (FromJSON a, NamedKey a) => FromJSON (PaginatedResults a) where
-    parseJSON (Object v) = PaginatedResults
-      <$> v .:  "kind"
-      <*> v .:  "etag"
-      <*> v .:? "nextPageToken"
-      <*> v .:  keyName @a
-    parseJSON invalid = typeMismatch "paginated_results" invalid
-
-instance Paginated (PaginatedResults a) a where
-  nextPageID = _paginatedNextPageToken
-  getPage = _paginatedValues
 
 data TableReference = TableReference
   { _tableReferenceProjectID :: T.Text
@@ -111,15 +93,36 @@ data Query = Query
   , _queryUseLegacySQL   :: Bool
   } deriving (Eq, Show)
 
-getAllPages :: (Monad m, Paginated a b) => String -> (String -> String) -> (String -> m a) -> m [b]
+class Paginated a b | a -> b where
+  nextPageID :: a -> Maybe String
+  getPage :: a -> [b]
+
+data PaginatedResults a = PaginatedResults
+  { _paginatedNextPageToken :: Maybe String
+  , _paginatedValues :: [a]
+  }
+
+instance (FromJSON a, NamedKey a) => FromJSON (PaginatedResults a) where
+    parseJSON (Object v) = PaginatedResults
+      <$> v .:? "nextPageToken"
+      <*> v .:  keyName @a
+    parseJSON invalid = typeMismatch "paginated_results" invalid
+
+instance Paginated (PaginatedResults a) a where
+  nextPageID = _paginatedNextPageToken
+  getPage = _paginatedValues
+
+getAllPages :: (Monad m, MonadIO m, Paginated a b) => String -> (String -> String) -> (String -> m a) -> m [b]
 getAllPages = getAllPages' []
   where
     getAllPages' ::
-      (Monad m, Paginated a b) =>
+      (Monad m, MonadIO m, Paginated a b) =>
       [b] -> String -> (String -> String) -> (String -> m a) -> m [b]
-    getAllPages' carry s nextS nextF = do
+    getAllPages' carry s nextS nextF =
+      (carry <>) <$> do
+      liftIO $ putStrLn "getting page"
       page <- nextF s
-      let carry' = carry <> getPage page
+      let carry' = getPage page
       case nextPageID page of
         Nothing -> return carry'
         Just nextID -> do

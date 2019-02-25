@@ -1,10 +1,13 @@
 module Database.Google.BigQuery where
 
+import Control.Monad
+import Control.Monad.IO.Class
 import Network.HTTP.Authenticated.Google.Request
 import Network.HTTP.Authenticated.Google.GoogleHTTP
 import Network.HTTP.Authenticated.Google.OAuth2
 import Network.HTTP.Client
 import Network.HTTP.Client.TLS
+import Google.Credentials.ServiceAccount
 import Text.Printf
 import Data.Aeson
 
@@ -45,3 +48,11 @@ datasets = getItems <*> datasetListURL
 tables :: BigQueryConfig -> String -> Authenticated [TableBasicInfo]
 tables bqCfg dataset =
   getItems bqCfg $ tableListURL bqCfg dataset
+
+runBigQuery :: Authenticated a -> IO a
+runBigQuery = runRequestWithClaims bqScopes
+
+defaultBigQueryConfig :: Authenticated BigQueryConfig
+defaultBigQueryConfig = liftIO $ do
+  projID <- join (unsafeResult <$> defaultProjectID)
+  return . BigQueryConfig . T.unpack $ projID
