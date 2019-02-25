@@ -1,5 +1,6 @@
 module Network.HTTP.Authenticated.Google.Request where
 
+import Google.Credentials.ServiceAccount
 import Network.HTTP.Authenticated.Google.OAuth2
 import Network.HTTP.Authenticated.Google.GoogleHTTP
 import Web.JWT
@@ -20,14 +21,14 @@ import qualified Data.ByteString as BS
 
 
 data AuthCfg = AuthCfg
-  { _authInfo    :: GoogleAuthData
+  { _authInfo    :: ServiceAccountInfo
   , _authClaims  :: ClaimsMap
   , _authData    :: GoogleAuthToken
   }
 
 parseAuthCfg :: ClaimsMap -> IO AuthCfg
 parseAuthCfg claims =
-  let creds = defaultCreds
+  let creds = unsafeDefaultCredentials
   in AuthCfg
      <$> creds
      <*> pure claims

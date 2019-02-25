@@ -9,6 +9,8 @@ import Data.Time.Clock
 import Data.Time.Clock.POSIX
 import Data.Aeson
 import Data.Aeson.Types
+import Google.Credentials.ServiceAccount
+
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString as BS
@@ -53,7 +55,7 @@ mkAuthToken (TokenResponse accessToken expiresIn tokenType) = do
       let seconds' = fromRational @NominalDiffTime . toRational $ secondsToDiffTime seconds
       in addUTCTime seconds' t
 
-bearerToken :: GoogleAuthData -> ClaimsMap -> IO GoogleAuthToken
+bearerToken :: ServiceAccountInfo -> ClaimsMap -> IO GoogleAuthToken
 bearerToken auth scope = do
   manager <- newManager tlsManagerSettings
   tok <- encodeUtf8 <$> googleTokenIO auth scope
@@ -75,4 +77,4 @@ bearerToken auth scope = do
 
 defaultBearerToken :: IO GoogleAuthToken
 defaultBearerToken =
-  defaultCreds >>= (`bearerToken` bqScopes)
+  unsafeDefaultCredentials >>= (`bearerToken` bqScopes)
