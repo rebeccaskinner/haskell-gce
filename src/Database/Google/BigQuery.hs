@@ -37,7 +37,7 @@ fetchPage url = do
 
 getItems :: (FromJSON a, NamedKey a) => BigQueryConfig -> String -> Authenticated [a]
 getItems bqCfg u =
-  getAllPages u (nextRequestString u) fetchPage
+  getAllPages' u (nextRequestString u) fetchPage
   where
     nextRequestString :: String -> String -> String
     nextRequestString = printf "%s?pageToken=%s"
@@ -45,9 +45,27 @@ getItems bqCfg u =
 datasets :: BigQueryConfig -> Authenticated [Dataset]
 datasets = getItems <*> datasetListURL
 
+withDataset :: BigQueryConfig -> (Dataset -> Authenticated a) -> Authenticated [a]
+withDataset cfg =
+  let nextRequestString = printf "%s?pageToken=%s"
+      u = datasetListURL cfg
+  in withPages u (nextRequestString u) fetchPage
+
+withDataset_ :: BigQueryConfig -> (Dataset -> Authenticated a) -> Authenticated ()
+withDataset_ cfg a = withDataset cfg a >> return ()
+
 tables :: BigQueryConfig -> String -> Authenticated [TableBasicInfo]
 tables bqCfg dataset =
   getItems bqCfg $ tableListURL bqCfg dataset
+
+withTable :: BigQueryConfig -> String -> (TableBasicInfo -> Authenticated a) -> Authenticated [a]
+withTable cfg dset =
+  let nextRequestString = printf "%s?pageToken=%s"
+      u = tableListURL cfg dset
+  in withPages u (nextRequestString u) fetchPage
+
+withTable_ :: BigQueryConfig -> String -> (TableBasicInfo -> Authenticated a) -> Authenticated()
+withTable_ cfg dset a = withTable cfg dset a >> return ()
 
 runBigQuery :: Authenticated a -> IO a
 runBigQuery = runRequestWithClaims bqScopes

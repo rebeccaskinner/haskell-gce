@@ -1,5 +1,6 @@
 module Main where
 
+import Text.Printf
 import Control.Monad
 import Control.Monad.IO.Class
 import Database.Google.BigQuery
@@ -13,14 +14,14 @@ import qualified Data.Text as T
 main :: IO ()
 main = runBigQuery $ do
   cfg <- defaultBigQueryConfig
-  myDatasets <- (map dsRef . take 10) <$> datasets cfg
-  forM_ myDatasets $ \d -> do
-    display $ show d
-  let dsName = last $ myDatasets
-  myTables <- map tRef <$> tables cfg dsName
-  forM_ myTables $ \t -> do
-    display $ show t
+  withDataset_ cfg $ \dset -> do
+    let dsid = dsRef dset
+    display $ printf "dataset: %s" dsid
+    withTable_ cfg dsid $ \t -> do
+      let tinfo = tRef t
+      display $ printf "    table: %s " tinfo
+    fail "foo"
   where
     display = liftIO . putStrLn
     dsRef = T.unpack . _dsrefDatasetID . _datasetReference
-    tRef = ("    "++) . T.unpack . _tableReferenceTableID . _tableReference
+    tRef = T.unpack . _tableReferenceTableID . _tableReference

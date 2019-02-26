@@ -1,10 +1,12 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 module Database.Google.BigQuery.Types where
 
+import Text.Printf
 import Data.Aeson
 import Data.Aeson.Types
 import Data.Time.Clock
 import Control.Monad.IO.Class
+import Control.Monad.Fix
 import qualified Data.Map.Strict
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
@@ -127,3 +129,34 @@ getAllPages = getAllPages' []
         Nothing -> return carry'
         Just nextID -> do
           getAllPages' carry' (nextS nextID) nextS nextF
+
+
+data PageIter carryType urlType = Done carryType
+                                | Iter carryType urlType
+
+withPages'
+  :: (Monad m, MonadIO m, Paginated a b) =>
+  (String -> String) -> (String -> m a) -> PageIter [m c] String -> (b -> m c) -> m [c]
+withPages' _ _ (Done carry) _ = sequence carry
+withPages' normalizeURL fetchPage  (Iter carry thisURL) pageAction = do
+  liftIO . putStrLn $ printf "getting URL: %s" thisURL
+  p <- fetchPage thisURL
+  let pageData = getPage p
+  let pageActions = (map pageAction pageData) <> carry
+  let nextURL = nextPageID p
+  case nextURL of
+    Nothing -> withPages' normalizeURL fetchPage (Done pageActions) pageAction
+    Just u' ->
+      let uNorm = normalizeURL u' in
+      withPages' normalizeURL fetchPage (Iter pageActions uNorm) pageAction
+
+withPages :: (Monad m, MonadIO m, Paginated a b) =>
+  String -> (String -> String) -> (String -> m a) -> (b -> m c) -> m [c]
+withPages baseURL normalizeURL fetchPage =
+  withPages' normalizeURL fetchPage (Iter [] baseURL)
+
+getAllPages' ::
+  (Monad m, MonadIO m, Paginated a b) =>
+  String -> (String -> String) -> (String -> m a) -> m [b]
+getAllPages' baseURL nextURL fetchPage =
+  withPages baseURL nextURL fetchPage return
