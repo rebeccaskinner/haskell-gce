@@ -14,7 +14,7 @@ import qualified Data.Text as T
 main :: IO ()
 main = runBigQuery $ do
   cfg <- defaultBigQueryConfig
-  dsets <- take 3 <$> datasets cfg
+  dsets <- take 100 <$> datasets' cfg
   mapM_ (display . dsRef) dsets
   -- withDataset_ cfg $ \dset -> do
   --   let dsid = dsRef dset

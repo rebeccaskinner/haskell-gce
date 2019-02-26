@@ -15,6 +15,7 @@ import Data.Time.Clock.POSIX
 import Data.Aeson
 import Data.Aeson.Types
 import Data.IORef
+import Control.Monad.Fix
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
 import qualified Data.ByteString as BS
@@ -45,7 +46,7 @@ refreshAuth (AuthCfg authInfo claims _) = do
 -- TODO: Manually create an instance of Monad that refreshes the token?
 newtype Authenticated a = Authenticated {
   runAuthenticated :: ReaderT AuthCfg IO a
-  } deriving (MonadIO, Functor, Applicative, Monad, MonadReader AuthCfg)
+  } deriving (MonadIO, Functor, Applicative, Monad, MonadFix, MonadReader AuthCfg)
 
 runAuthenticatedRequest :: AuthCfg -> Authenticated a -> IO a
 runAuthenticatedRequest cfg = flip runReaderT cfg . runAuthenticated

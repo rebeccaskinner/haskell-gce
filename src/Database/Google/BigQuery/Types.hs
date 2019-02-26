@@ -7,6 +7,7 @@ import Data.Aeson.Types
 import Data.Time.Clock
 import Control.Monad.IO.Class
 import Control.Monad.Fix
+import Data.IORef
 import qualified Data.Map.Strict
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
@@ -114,23 +115,6 @@ instance Paginated (PaginatedResults a) a where
   nextPageID = _paginatedNextPageToken
   getPage = _paginatedValues
 
-getAllPages :: (Monad m, MonadIO m, Paginated a b) => String -> (String -> String) -> (String -> m a) -> m [b]
-getAllPages = getAllPages' []
-  where
-    getAllPages' ::
-      (Monad m, MonadIO m, Paginated a b) =>
-      [b] -> String -> (String -> String) -> (String -> m a) -> m [b]
-    getAllPages' carry s nextS nextF =
-      (carry <>) <$> do
-      liftIO $ putStrLn "getting page"
-      page <- nextF s
-      let carry' = getPage page
-      case nextPageID page of
-        Nothing -> return carry'
-        Just nextID -> do
-          getAllPages' carry' (nextS nextID) nextS nextF
-
-
 data PageIter carryType urlType = Done carryType
                                 | Iter carryType urlType
 
@@ -151,13 +135,72 @@ withPages' normalizeURL fetchPage  (Iter carry thisURL) pageAction = do
       let uNorm = normalizeURL u' in
       withPages' normalizeURL fetchPage (Iter pa uNorm) pageAction
 
-withPages :: (Monad m, MonadIO m, Paginated a b) =>
-  String -> (String -> String) -> (String -> m a) -> (b -> m c) -> m [c]
-withPages baseURL normalizeURL fetchPage =
-  withPages' normalizeURL fetchPage (Iter (pure []) baseURL)
+withPage' ::
+  (Monad m, MonadIO m, MonadFix m, Paginated a b) =>
+  (String -> String) -> (String -> m a) -> (b -> m c) -> PageIter [c] String -> m (PageIter [c] string)
+withPage' cURL fetchPage pageAction = mfix $ \p -> withPage''
+  where
+    withPage'' p = do
+      case p of
+        Done c -> return $ Done c
+        Iter c u -> do
+          liftIO . putStrLn $ printf "getting url: %s" u
+          p <- fetchPage u
+          let pData = getPage p
+          let u = cURL <$> nextPageID p
+          a <- mapM pageAction pData
+          let a' = a <> c
+          case u of
+            Nothing -> return $ Done a'
+            Just u' -> withPage'' (Iter a' u')
 
-getAllPages' ::
-  (Monad m, MonadIO m, Paginated a b) =>
+withPage :: (Monad m, MonadIO m, MonadFix m, Paginated a b) =>
+  String -> (String -> String) -> (String -> m a) -> (b -> m c) -> m [c]
+withPage baseURL normalizeURL fetchPage act = do
+  result <- withPage' normalizeURL fetchPage act  $ Iter [] baseURL
+  case result of
+    Done c -> return c
+    _ -> liftIO (putStrLn "error") >> return []
+
+fixPages
+  :: (MonadFix m, MonadIO m, Paginated a b) =>
+     String -> (String -> String -> String) -> (String -> m a) -> m [b]
+fixPages baseURL nextURL fetchPageAction = mfix (
+  \ ~(pageData, url) -> do
+    (pageData', url') <- fetchPage fetchPageAction pageData (Just baseURL)
+    return (pageData', url')
+  ) >>= \(pages, _) -> return pages
+  where
+    fetchPage ::
+      (Monad m, MonadIO m, MonadFix m, Paginated a b) =>
+      (String -> m a) -> [b] -> Maybe String -> m ([b], Maybe String)
+    fetchPage _ d Nothing = return (d, Nothing)
+    fetchPage   fetchPageAction pageData (Just url) = do
+      newPage <- fetchPageAction url
+      let pageData' = getPage newPage <> pageData
+      let url' = nextURL baseURL url
+      return (pageData', nextPageID newPage)
+
+
+-- fixPages baseURL nextURL fetchPageAction = mfix (
+--   \ ~(pageData, url) -> do
+--     (pageData', url') <- fetchPage baseURL nextURL fetchPageAction pageData (Just baseURL)
+--     return (pageData', url')
+--   ) >>= \(pages, _) -> return pages
+--   where
+--     fetchPage ::
+--       (Monad m, MonadIO m, MonadFix m, Paginated a b) =>
+--       String -> (String -> String -> String) -> (String -> m a) -> [b] -> Maybe String -> m ([b], Maybe String)
+--     fetchPage _ _ _ d Nothing = return (d, Nothing)
+--     fetchPage baseURL nextURL fetchPageAction pageData (Just url) = do
+--       newPage <- fetchPageAction url
+--       let pageData' = getPage newPage <> pageData
+--       let url' = nextURL baseURL url
+--       return (pageData', nextPageID newPage)
+
+
+getAllPages ::
+  (Monad m, MonadFix m, MonadIO m, Paginated a b) =>
   String -> (String -> String) -> (String -> m a) -> m [b]
-getAllPages' baseURL nextURL fetchPage =
-  withPages baseURL nextURL fetchPage return
+getAllPages baseURL nextURL fetchPage =
+  withPage baseURL nextURL fetchPage return
