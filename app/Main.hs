@@ -1,5 +1,6 @@
 module Main where
 
+import Data.List
 import Text.Printf
 import Control.Monad
 import Control.Monad.IO.Class
@@ -14,8 +15,10 @@ import qualified Data.Text as T
 main :: IO ()
 main = runBigQuery $ do
   cfg <- defaultBigQueryConfig
-  dsets <- take 100 <$> datasets' cfg
-  mapM_ (display . dsRef) dsets
+  dsets <- take 200 <$> datasets' cfg
+  display $ printf "length: %d" (length dsets)
+  display $ printf "nub length: %d" (length $ nub dsets)
+--  mapM_ (display . dsRef) dsets
   -- withDataset_ cfg $ \dset -> do
   --   let dsid = dsRef dset
   --   display $ printf "dataset: %s" dsid
