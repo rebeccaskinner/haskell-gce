@@ -136,24 +136,25 @@ data PageIter carryType urlType = Done carryType
 
 withPages'
   :: (Monad m, MonadIO m, Paginated a b) =>
-  (String -> String) -> (String -> m a) -> PageIter [m c] String -> (b -> m c) -> m [c]
-withPages' _ _ (Done carry) _ = sequence carry
+  (String -> String) -> (String -> m a) -> PageIter (m [c]) String -> (b -> m c) -> m [c]
+withPages' _ _ (Done carry) _ = carry
 withPages' normalizeURL fetchPage  (Iter carry thisURL) pageAction = do
   liftIO . putStrLn $ printf "getting URL: %s" thisURL
   p <- fetchPage thisURL
   let pageData = getPage p
-  let pageActions = (map pageAction pageData) <> carry
+  pageActions <- mapM pageAction pageData
+  let pa = (pageActions <>) <$> carry
   let nextURL = nextPageID p
   case nextURL of
-    Nothing -> withPages' normalizeURL fetchPage (Done pageActions) pageAction
+    Nothing -> withPages' normalizeURL fetchPage (Done pa) pageAction
     Just u' ->
       let uNorm = normalizeURL u' in
-      withPages' normalizeURL fetchPage (Iter pageActions uNorm) pageAction
+      withPages' normalizeURL fetchPage (Iter pa uNorm) pageAction
 
 withPages :: (Monad m, MonadIO m, Paginated a b) =>
   String -> (String -> String) -> (String -> m a) -> (b -> m c) -> m [c]
 withPages baseURL normalizeURL fetchPage =
-  withPages' normalizeURL fetchPage (Iter [] baseURL)
+  withPages' normalizeURL fetchPage (Iter (pure []) baseURL)
 
 getAllPages' ::
   (Monad m, MonadIO m, Paginated a b) =>

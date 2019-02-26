@@ -14,13 +14,14 @@ import qualified Data.Text as T
 main :: IO ()
 main = runBigQuery $ do
   cfg <- defaultBigQueryConfig
-  withDataset_ cfg $ \dset -> do
-    let dsid = dsRef dset
-    display $ printf "dataset: %s" dsid
-    withTable_ cfg dsid $ \t -> do
-      let tinfo = tRef t
-      display $ printf "    table: %s " tinfo
-    fail "foo"
+  dsets <- take 3 <$> datasets cfg
+  mapM_ (display . dsRef) dsets
+  -- withDataset_ cfg $ \dset -> do
+  --   let dsid = dsRef dset
+  --   display $ printf "dataset: %s" dsid
+  --   withTable_ cfg dsid $ \t -> do
+  --     let tinfo = tRef t
+  --     display $ printf "    table: %s " tinfo
   where
     display = liftIO . putStrLn
     dsRef = T.unpack . _dsrefDatasetID . _datasetReference
