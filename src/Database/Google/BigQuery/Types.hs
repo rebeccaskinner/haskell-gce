@@ -1,4 +1,5 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
+{-# LANGUAGE RecursiveDo #-}
 module Database.Google.BigQuery.Types where
 
 import Text.Printf
@@ -8,6 +9,7 @@ import Data.Time.Clock
 import Control.Monad.IO.Class
 import Control.Monad.Fix
 import Data.IORef
+import Data.Maybe
 import qualified Data.Map.Strict
 import qualified Data.Text as T
 import qualified Data.ByteString.Lazy as BL
@@ -162,42 +164,41 @@ withPage baseURL normalizeURL fetchPage act = do
     Done c -> return c
     _ -> liftIO (putStrLn "error") >> return []
 
-fixPages
-  :: (MonadFix m, MonadIO m, Paginated a b) =>
-     String -> (String -> String -> String) -> (String -> m a) -> m [b]
-fixPages baseURL nextURL fetchPageAction = mfix (
-  \ ~(pageData, url) -> do
-    (pageData', url') <- fetchPage fetchPageAction pageData (Just baseURL)
-    return (pageData', url')
-  ) >>= \(pages, _) -> return pages
-  where
-    fetchPage ::
-      (Monad m, MonadIO m, MonadFix m, Paginated a b) =>
-      (String -> m a) -> [b] -> Maybe String -> m ([b], Maybe String)
-    fetchPage _ d Nothing = return (d, Nothing)
-    fetchPage   fetchPageAction pageData (Just url) = do
-      newPage <- fetchPageAction url
-      let pageData' = getPage newPage <> pageData
-      let url' = nextURL baseURL url
-      return (pageData', nextPageID newPage)
+data AddressablePage = AddressablePage
+  { _baseURL :: String
+  , _offsetPart :: Maybe String
+  , _mkURL :: String -> Maybe String -> String
+  }
+
+instance Show AddressablePage where
+  show (AddressablePage base offset _) =
+    printf "base: %s; offset: %s" base (fromMaybe "<Nothing>" offset)
 
 
--- fixPages baseURL nextURL fetchPageAction = mfix (
---   \ ~(pageData, url) -> do
---     (pageData', url') <- fetchPage baseURL nextURL fetchPageAction pageData (Just baseURL)
---     return (pageData', url')
---   ) >>= \(pages, _) -> return pages
---   where
---     fetchPage ::
---       (Monad m, MonadIO m, MonadFix m, Paginated a b) =>
---       String -> (String -> String -> String) -> (String -> m a) -> [b] -> Maybe String -> m ([b], Maybe String)
---     fetchPage _ _ _ d Nothing = return (d, Nothing)
---     fetchPage baseURL nextURL fetchPageAction pageData (Just url) = do
---       newPage <- fetchPageAction url
---       let pageData' = getPage newPage <> pageData
---       let url' = nextURL baseURL url
---       return (pageData', nextPageID newPage)
+data FixI a = DoneI [a] | IterI String (FixI a)
+fromDone :: FixI a -> [a]
+fromDone (DoneI as) = as
 
+fixPages' :: (Monad m, MonadIO m, MonadFix m, Paginated a b) =>
+  String -> (String -> String -> String) -> (String -> m a) -> a -> m [b]
+fixPages' baseURL nextURL pageGetter =
+  \page -> mdo
+    liftIO $ putStrLn "parsing page..."
+    let contents = otherContents <> getPage page
+    let u' = nextURL baseURL <$> nextPageID page
+    otherContents <- case u' of
+                       Nothing -> pure []
+                       Just addr -> do
+                         nPage <- pageGetter addr
+                         fixPages' baseURL nextURL pageGetter nPage
+
+    return contents
+
+fixPages ::
+  (Monad m, MonadIO m, MonadFix m, Paginated a b) =>
+  String -> (String -> String -> String) -> (String -> m a) -> m [b]
+fixPages u nxt act =
+  act u >>= fixPages' u nxt act
 
 getAllPages ::
   (Monad m, MonadFix m, MonadIO m, Paginated a b) =>

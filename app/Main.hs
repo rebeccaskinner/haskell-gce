@@ -15,9 +15,16 @@ import qualified Data.Text as T
 main :: IO ()
 main = runBigQuery $ do
   cfg <- defaultBigQueryConfig
-  dsets <- take 200 <$> datasets' cfg
-  display $ printf "length: %d" (length dsets)
-  display $ printf "nub length: %d" (length $ nub dsets)
+--   dsets <- datasets cfg
+  dsets' <- take (10) <$> datasets' cfg
+
+--  display $ printf "strict length: %d" (length dsets)
+--  display $ printf "strict nub length: %d" (length $ nub dsets)
+
+  display $ printf "iter length: %d" (length dsets')
+  display $ printf "iter nub length: %d" (length $ nub dsets')
+
+
 --  mapM_ (display . dsRef) dsets
   -- withDataset_ cfg $ \dset -> do
   --   let dsid = dsRef dset
