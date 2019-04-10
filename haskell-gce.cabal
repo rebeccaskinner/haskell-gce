@@ -1,0 +1,116 @@
+cabal-version:  2.2
+name:           haskell-gce
+version:        0.1.0.0
+description:    Please see the README on GitHub at <https://github.com/rebeccaskinner/haskell-gce#readme>
+homepage:       https://github.com/rebeccaskinner/haskell-gce#readme
+bug-reports:    https://github.com/rebeccaskinner/haskell-gce/issues
+author:         Rebecca Skinner
+maintainer:     rebecca@rebeccaskinner.net
+copyright:      2019 Rebeccak Skinner
+license:        Apache-2.0
+license-file:   LICENSE
+build-type:     Simple
+extra-source-files:
+    README.md
+    ChangeLog.md
+
+source-repository head
+  type: git
+  location: https://github.com/rebeccaskinner/haskell-gce
+
+library
+  exposed-modules:
+      Database.Google.BigQuery
+      Database.Google.BigQuery.Types
+      Google.Credentials.ServiceAccount
+      Lib
+      Network.HTTP.Authenticated
+      Network.HTTP.Authenticated.Google.GoogleHTTP
+      Network.HTTP.Authenticated.Google.OAuth2
+      Network.HTTP.Authenticated.Google.Request
+  hs-source-dirs:
+      src
+  default-extensions: GADTs
+                    , OverloadedStrings
+                    , LambdaCase
+                    , RankNTypes
+                    , FlexibleContexts
+                    , FlexibleInstances
+                    , ScopedTypeVariables
+                    , TypeApplications
+                    , TypeFamilies
+                    , BangPatterns
+                    , ExistentialQuantification
+                    , FunctionalDependencies
+                    , MultiParamTypeClasses
+                    , DeriveFunctor
+                    , GeneralizedNewtypeDeriving
+  build-depends:
+      aeson >=1.4 && <1.5
+    , base >=4.7 && <5
+    , bytestring >=0.10 && <0.11
+    , containers >=0.6 && <0.7
+    , cryptonite >=0.25 && <0.26
+    , hoauth2 >=1.8 && <1.9
+    , http-client >=0.5 && <0.6
+    , http-client-tls >=0.3 && <0.4
+    , http-types >=0.12 && <0.13
+    , jwt >=0.9 && <0.10
+    , lens >=4.17 && <4.18
+    , mtl >=2.2 && <2.3
+    , scientific >=0.3 && <0.4
+    , text >=1.2 && <1.3
+    , time >=1.8 && <1.9
+    , transformers >=0.5 && <0.6
+  default-language: Haskell2010
+--   pkgconfig-depends: zlib
+--  extra-lib-dirs: /usr/lib
+--   extra-lib-dirs: /nix/store/8rbbp45lmaz78d6ligq48l3r5w32xl25-zlib-1.2.11/lib/
+--  extra-libraries: z
+--  pkgconfig-depends: zlib
+
+test-suite haskell-gce-test
+  type: exitcode-stdio-1.0
+  main-is: Spec.hs
+  hs-source-dirs:
+      test
+  default-extensions: GADTs
+                    , OverloadedStrings
+                    , LambdaCase
+                    , RankNTypes
+                    , FlexibleContexts
+                    , FlexibleInstances
+                    , ScopedTypeVariables
+                    , TypeApplications
+                    , TypeFamilies
+                    , BangPatterns
+                    , ExistentialQuantification
+                    , FunctionalDependencies
+                    , MultiParamTypeClasses
+                    , DeriveFunctor
+                    , GeneralizedNewtypeDeriving
+  ghc-options: -threaded -rtsopts -with-rtsopts=-N
+  build-depends:
+      aeson >=1.4 && <1.5
+    , base >=4.7 && <5
+    , bytestring >=0.10 && <0.11
+    , containers >=0.6 && <0.7
+    , cryptonite >=0.25 && <0.26
+    , haskell-gce
+    , hoauth2 >=1.8 && <1.9
+    , http-client >=0.5 && <0.6
+    , http-client-tls >=0.3 && <0.4
+    , http-types >=0.12 && <0.13
+    , jwt >=0.9 && <0.10
+    , lens >=4.17 && <4.18
+    , mtl >=2.2 && <2.3
+    , scientific >=0.3 && <0.4
+    , text >=1.2 && <1.3
+    , time >=1.8 && <1.9
+    , transformers >=0.5 && <0.6
+  default-language: Haskell2010
+--  pkgconfig-depends: zlib
+--  extra-lib-dirs: /usr/lib
+--  extra-lib-dirs: /nix/store/8rbbp45lmaz78d6ligq48l3r5w32xl25-zlib-1.2.11/lib/
+--  extra-libraries: z
+--  pkgconfig-depends: zlib
